@@ -1,4 +1,6 @@
 import os
+import warnings
+warnings.simplefilter("ignore") 
 
 custom_imports = dict(imports=["geospatial_fm"])
 
@@ -12,7 +14,7 @@ cudnn_benchmark = True
 dataset_type = "GeospatialDataset"
 
 # TO BE DEFINED BY USER: data directory
-data_root = "/home/ziggy/devel/hls_burn_scars/"
+data_root = "/home/ziggy/devel/kelp_data/"
 
 
 num_frames = 1
@@ -27,7 +29,7 @@ img_norm_cfg = dict(
         0.05889748132001316,
         0.2323245113436119,
         0.1972854853760658,
-        0.11944914225186566,
+        # 0.11944914225186566,
     ],
     stds=[
         0.02269135568823774,
@@ -35,18 +37,18 @@ img_norm_cfg = dict(
         0.04004109844362779,
         0.07791732423672691,
         0.08708738838140137,
-        0.07241979477437814,
+        # 0.07241979477437814,
     ],
 )  # change the mean and std of all the bands
 
-bands = [0, 1, 2, 3, 4, 5]
+bands = [0, 1, 2, 3, 4,]
 tile_size = 224
-orig_nsize = 512
+orig_nsize = 350
 crop_size = (tile_size, tile_size)
-img_suffix = "_merged.tif"
-seg_map_suffix = ".mask.tif"
+img_suffix = "_satellite.tif"
+seg_map_suffix = "_kelp.tif"
 ignore_index = -1
-image_nodata = -9999
+image_nodata = -32_768
 image_nodata_replace = 0
 image_to_float32 = True
 
@@ -63,8 +65,8 @@ max_intervals = 10000
 evaluation_interval = 1000
 
 # TO BE DEFINED BY USER: model path
-experiment = "test_run"
-project_dir = "TEST"
+experiment = "prithvi-gbr"
+project_dir = "kelp-me"
 work_dir = os.path.join(project_dir, experiment)
 save_path = work_dir
 
@@ -85,6 +87,8 @@ train_pipeline = [
         new_shape=(len(bands), num_frames, tile_size, tile_size),
     ),
     dict(type="Reshape", keys=["gt_semantic_seg"], new_shape=(1, tile_size, tile_size)),
+    dict(type="TorchGaussianBlur"),
+    dict(type="TorchColorJitter"),
     dict(type="CastTensor", keys=["gt_semantic_seg"], new_type="torch.LongTensor"),
     dict(type="Collect", keys=["img", "gt_semantic_seg"]),
 ]
@@ -122,7 +126,7 @@ test_pipeline = [
     ),
 ]
 
-CLASSES = ("Unburnt land", "Burn scar")
+CLASSES = ("Not Kelp", "Kelp")
 
 data = dict(
     samples_per_gpu=samples_per_gpu,
@@ -131,8 +135,8 @@ data = dict(
         type=dataset_type,
         CLASSES=CLASSES,
         data_root=data_root,
-        img_dir="training",
-        ann_dir="training",
+        img_dir="train_satellite",
+        ann_dir="train_kelp",
         img_suffix=img_suffix,
         seg_map_suffix=seg_map_suffix,
         pipeline=train_pipeline,
@@ -142,24 +146,24 @@ data = dict(
         type=dataset_type,
         CLASSES=CLASSES,
         data_root=data_root,
-        img_dir="validation",
-        ann_dir="validation",
+        img_dir="val_satellite",
+        ann_dir="val_kelp",
         img_suffix=img_suffix,
         seg_map_suffix=seg_map_suffix,
         pipeline=test_pipeline,
         ignore_index=-1,
     ),
-    test=dict(
-        type=dataset_type,
-        CLASSES=CLASSES,
-        data_root=data_root,
-        img_dir="validation",
-        ann_dir="validation",
-        img_suffix=img_suffix,
-        seg_map_suffix=seg_map_suffix,
-        pipeline=test_pipeline,
-        ignore_index=-1,
-    ),
+    # test=dict(
+    #     type=dataset_type,
+    #     CLASSES=CLASSES,
+    #     data_root=data_root,
+    #     img_dir="test_satellite",
+    #     ann_dir="val_kelp",
+    #     img_suffix=img_suffix,
+    #     seg_map_suffix=seg_map_suffix,
+    #     pipeline=test_pipeline,
+    #     ignore_index=-1,
+    # ),
 )
 
 optimizer = dict(type="Adam", lr=1.3e-05, betas=(0.9, 0.999))
@@ -178,6 +182,7 @@ log_config = dict(
     hooks=[
         dict(type="TextLoggerHook", by_epoch=False),
         dict(type="TensorboardLoggerHook", by_epoch=False),
+        dict(type="WandbLoggerHook", init_kwargs=dict(project=project_dir, name=experiment)),
     ],
 )
 checkpoint_config = dict(by_epoch=True, interval=10, out_dir=save_path)

@@ -9,6 +9,7 @@ import torchvision.transforms.functional as F
 from mmcv.parallel import DataContainer as DC
 from mmseg.datasets.builder import PIPELINES
 from torchvision import transforms
+import torch
 
 
 def open_tiff(fname):
@@ -95,6 +96,38 @@ class TorchRandomCrop(object):
 
         return results
 
+@PIPELINES.register_module()
+class TorchGaussianBlur(object):
+
+    def __init__(self, kernel_size=(5,15), sigma=(0.1, 5)):
+        self.kernel_size = kernel_size
+        self.sigma = sigma
+
+    def __call__(self, results):
+        state = torch.get_rng_state()
+        blur = transforms.GaussianBlur(kernel_size=self.kernel_size, sigma=self.sigma)
+        results["img"] = blur(results["img"]).float()
+        torch.set_rng_state(state)
+        blur = transforms.GaussianBlur(kernel_size=self.kernel_size, sigma=self.sigma)
+        results["gt_semantic_seg"] = blur(results["gt_semantic_seg"]).float()
+
+        return results
+
+@PIPELINES.register_module()
+class TorchColorJitter(object):
+
+    def __init__(self, brightness=(0.5,1.5), contrast=(0.5,1.5)):
+        self.brightness = brightness
+        self.contrast = contrast
+
+    def __call__(self, results):
+        state = torch.get_rng_state()
+        jitter = transforms.ColorJitter(brightness=self.brightness, contrast=self.contrast)
+        results["img"] = jitter(results["img"]).float()
+        torch.set_rng_state(state)
+        jitter = transforms.ColorJitter(brightness=self.brightness, contrast=self.contrast)
+        results["gt_semantic_seg"] = jitter(results["gt_semantic_seg"]).float()
+        return results
 
 @PIPELINES.register_module()
 class TorchNormalize(object):

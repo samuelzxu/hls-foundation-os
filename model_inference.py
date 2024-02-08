@@ -209,7 +209,7 @@ def inference_on_files(
         output_image = os.path.join(
             output_path,
             target_image.split("/")[-1].replace(
-                "." + input_type, "_pred." + input_type
+                "." + input_type, "_kelp." + input_type
             ),
         )
 
