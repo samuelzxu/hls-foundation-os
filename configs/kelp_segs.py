@@ -61,11 +61,11 @@ embed_dim = 768
 num_heads = 12
 tubelet_size = 1
 output_embed_dim = num_frames * embed_dim
-max_intervals = 10000
+max_intervals = 15000
 evaluation_interval = 1000
 
 # TO BE DEFINED BY USER: model path
-experiment = "prithvi-gbr"
+experiment = "prithvi-gbr-weighted"
 project_dir = "kelp-me"
 work_dir = os.path.join(project_dir, experiment)
 save_path = work_dir
@@ -185,7 +185,18 @@ log_config = dict(
         dict(type="WandbLoggerHook", init_kwargs=dict(project=project_dir, name=experiment)),
     ],
 )
-checkpoint_config = dict(by_epoch=True, interval=10, out_dir=save_path)
+
+vis_backends = [dict(type='LocalVisBackend'),
+                dict(type='TensorboardVisBackend'),
+                dict(type='WandbVisBackend', init_kwargs=dict(project=project_dir, name=experiment))]
+
+visualizer = dict(
+    type='SegLocalVisualizer', vis_backends=vis_backends, name='visualizer'
+)
+
+
+checkpoint_config = dict(by_epoch=True, interval=1, out_dir=save_path)
+# save the best checkpoint by dice
 evaluation = dict(
     interval=evaluation_interval,
     metric="mIoU",
@@ -194,7 +205,7 @@ evaluation = dict(
     by_epoch=False,
 )
 
-loss_func = dict(type="DiceLoss", use_sigmoid=False, loss_weight=1, ignore_index=-1)
+loss_func = dict(type="DiceLoss", use_sigmoid=False, loss_weight=1, ignore_index=-1, class_weight=[0.0007,1])
 
 runner = dict(type="IterBasedRunner", max_iters=max_intervals)
 workflow = [("train", 1)]

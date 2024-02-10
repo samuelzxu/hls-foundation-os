@@ -104,14 +104,29 @@ class TorchGaussianBlur(object):
         self.sigma = sigma
 
     def __call__(self, results):
-        state = torch.get_rng_state()
         blur = transforms.GaussianBlur(kernel_size=self.kernel_size, sigma=self.sigma)
         results["img"] = blur(results["img"]).float()
-        torch.set_rng_state(state)
-        blur = transforms.GaussianBlur(kernel_size=self.kernel_size, sigma=self.sigma)
-        results["gt_semantic_seg"] = blur(results["gt_semantic_seg"]).float()
 
         return results
+
+@PIPELINES.register_module()
+class TorchRandomAffine(object):
+    
+        def __init__(self, degrees=(-180, 180), translate=(0.3, 0.3), scale=(0.7, 1.3), shear=(-10, 10)):
+            self.degrees = degrees
+            self.translate = translate
+            self.scale = scale
+            self.shear = shear
+    
+        def __call__(self, results):
+            state = torch.get_rng_state()
+            affine = transforms.RandomAffine(degrees=self.degrees, translate=self.translate, scale=self.scale, shear=self.shear)
+            results["img"] = affine(results["img"]).float()
+            torch.set_rng_state(state)
+            affine = transforms.RandomAffine(degrees=self.degrees, translate=self.translate, scale=self.scale, shear=self.shear)
+            results["gt_semantic_seg"] = affine(results["gt_semantic_seg"])
+    
+            return results
 
 @PIPELINES.register_module()
 class TorchColorJitter(object):
@@ -121,12 +136,9 @@ class TorchColorJitter(object):
         self.contrast = contrast
 
     def __call__(self, results):
-        state = torch.get_rng_state()
         jitter = transforms.ColorJitter(brightness=self.brightness, contrast=self.contrast)
         results["img"] = jitter(results["img"]).float()
-        torch.set_rng_state(state)
-        jitter = transforms.ColorJitter(brightness=self.brightness, contrast=self.contrast)
-        results["gt_semantic_seg"] = jitter(results["gt_semantic_seg"]).float()
+
         return results
 
 @PIPELINES.register_module()
