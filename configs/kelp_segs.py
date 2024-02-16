@@ -23,7 +23,7 @@ num_workers = 4
 samples_per_gpu = 4
 
 img_norm_cfg = dict(
-    means = [8284.60576285098, 8960.620879865262, 7048.155778147522, 7165.506184420261, 6846.093113783739],
+    means = [10035.471588303459, 10735.157409510864, 8749.484468334336, 8870.374927721672, 8555.930040329898, 0.07059119714611709, 14.856754975621637],
     # means=[
         
     #     # 0.2323245113436119,
@@ -33,7 +33,7 @@ img_norm_cfg = dict(
     #     # 0.033349706741586264,
     #     # 0.1972854853760658,
     # ],
-    stds=[4770.019046227436, 5331.417433631126, 3508.5626158655027, 3407.08002281137, 3322.3616913416913],
+    stds= [2804.9866899590766, 3392.3579149885463, 1430.6976191883807, 1302.9422392186511, 1168.9829945994245, 0.16116380862181137, 23.389279097947544],
     # stds=[
         
     #     # 0.08708738838140137,
@@ -45,7 +45,7 @@ img_norm_cfg = dict(
     #    ],
 )  # change the mean and std of all the bands
 
-bands = [0, 1, 2, 3, 4,]
+bands = [0, 1, 2, 3, 4, 5, 6]
 tile_size = 224
 orig_nsize = 350
 crop_size = (tile_size, tile_size)
@@ -69,7 +69,7 @@ max_intervals = 20000
 evaluation_interval = 500
 
 # TO BE DEFINED BY USER: model path
-experiment = "prithvi-retry-02-14"
+experiment = "prithvi-retry-02-16"
 project_dir = "kelp-me"
 work_dir = os.path.join(project_dir, experiment)
 save_path = work_dir
@@ -88,12 +88,18 @@ train_pipeline = [
     dict(
         type="Reshape",
         keys=["img"],
+        new_shape=(num_frames,len(bands), tile_size, tile_size),
+    ),
+    dict(type="TorchGaussianBlur",kernel_size=5, sigma=(0.1, 3)),
+    dict(type="TorchColorJitter", brightness=(0.8,1.2), contrast=(0.8,1.2)),
+    dict(type="TorchRandomAffine", degrees=(-180, 180), translate=(0.15, 0.15), scale=(0.8, 1.2), shear=(-5, 5)),
+    dict(
+        type="Reshape",
+        keys=["img"],
         new_shape=(len(bands), num_frames, tile_size, tile_size),
     ),
     dict(type="Reshape", keys=["gt_semantic_seg"], new_shape=(1, tile_size, tile_size)),
-    dict(type="TorchGaussianBlur",kernel_size=(3,7), sigma=(0.1, 5)),
-    dict(type="TorchColorJitter", brightness=(0.8,1.2), contrast=(0.8,1.2)),
-    dict(type="TorchRandomAffine", degrees=(-15, 15), translate=(0.15, 0.15), scale=(1, 1.15), shear=(-3, 3)),
+    
     dict(type="CastTensor", keys=["gt_semantic_seg"], new_type="torch.LongTensor"),
     dict(type="Collect", keys=["img", "gt_semantic_seg"]),
 ]
@@ -209,7 +215,7 @@ checkpoint_config = dict(by_epoch=False, interval=500, out_dir=save_path)
 # save the best checkpoint by dice
 evaluation = dict(
     interval=evaluation_interval,
-    metric="mIoU",
+    metric="mDice",
     pre_eval=True,
     by_epoch=False,
 )

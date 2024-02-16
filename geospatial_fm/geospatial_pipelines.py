@@ -119,12 +119,9 @@ class TorchRandomAffine(object):
             self.shear = shear
     
         def __call__(self, results):
-            state = torch.get_rng_state()
-            affine = transforms.RandomAffine(degrees=self.degrees, translate=self.translate, scale=self.scale, shear=self.shear)
-            results["img"] = affine(results["img"]).float()
-            torch.set_rng_state(state)
-            affine = transforms.RandomAffine(degrees=self.degrees, translate=self.translate, scale=self.scale, shear=self.shear)
-            results["gt_semantic_seg"] = affine(results["gt_semantic_seg"])
+            angle, translations, scale, shear = transforms.RandomAffine.get_params(self.degrees, self.translate, self.scale, self.shear, results["img"].size)
+            results["img"] = F.affine(results["img"], angle, translations, scale, shear, "bilinear")
+            results["gt_semantic_seg"] = F.affine(results["gt_semantic_seg"], angle, translations, scale, shear, "bilinear")
     
             return results
 
