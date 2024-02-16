@@ -10,6 +10,7 @@ from mmcv.parallel import DataContainer as DC
 from mmseg.datasets.builder import PIPELINES
 from torchvision import transforms
 import torch
+from torchvision.transforms import InterpolationMode
 
 
 def open_tiff(fname):
@@ -112,17 +113,17 @@ class TorchGaussianBlur(object):
 @PIPELINES.register_module()
 class TorchRandomAffine(object):
     
-        def __init__(self, degrees=(-180, 180), translate=(0.3, 0.3), scale=(0.7, 1.3), shear=(-10, 10)):
+        def __init__(self, degrees=(-180, 180), translate=(0.3, 0.3), scale=(0.7, 1.3), shear=(-10, 10,-10,10), img_size=(224, 224)):
             self.degrees = degrees
             self.translate = translate
             self.scale = scale
             self.shear = shear
+            self.img_size = img_size
     
         def __call__(self, results):
-            angle, translations, scale, shear = transforms.RandomAffine.get_params(self.degrees, self.translate, self.scale, self.shear, results["img"].size)
-            results["img"] = F.affine(results["img"], angle, translations, scale, shear, "bilinear")
-            results["gt_semantic_seg"] = F.affine(results["gt_semantic_seg"], angle, translations, scale, shear, "bilinear")
-    
+            angle, translations, scale, shear = transforms.RandomAffine.get_params(self.degrees, self.translate, self.scale, self.shear, self.img_size)
+            results["img"] = F.affine(results["img"], angle, translations, scale, shear, InterpolationMode.BILINEAR)
+            results["gt_semantic_seg"] = F.affine(results["gt_semantic_seg"][None,None,:,:], angle, translations, scale, shear, InterpolationMode.NEAREST)
             return results
 
 @PIPELINES.register_module()
@@ -134,8 +135,9 @@ class TorchColorJitter(object):
 
     def __call__(self, results):
         jitter = transforms.ColorJitter(brightness=self.brightness, contrast=self.contrast)
-        results["img"] = jitter(results["img"]).float()
-
+        results["img"][:,0,:] = jitter(results["img"][:,0,:]).float()
+        results["img"][:,1,:] = jitter(results["img"][:,1,:]).float()
+        results["img"][:,2:5,:] = jitter(results["img"][:,2:5,:]).float()
         return results
 
 @PIPELINES.register_module()

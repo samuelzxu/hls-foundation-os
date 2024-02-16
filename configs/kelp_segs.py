@@ -92,7 +92,7 @@ train_pipeline = [
     ),
     dict(type="TorchGaussianBlur",kernel_size=5, sigma=(0.1, 3)),
     dict(type="TorchColorJitter", brightness=(0.8,1.2), contrast=(0.8,1.2)),
-    dict(type="TorchRandomAffine", degrees=(-180, 180), translate=(0.15, 0.15), scale=(0.8, 1.2), shear=(-5, 5)),
+    dict(type="TorchRandomAffine", degrees=(-180, 180), translate=(0.15, 0.15), scale=(0.7, 1), shear=(-10, 10,-10,10)),
     dict(
         type="Reshape",
         keys=["img"],
