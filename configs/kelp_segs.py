@@ -23,22 +23,26 @@ num_workers = 4
 samples_per_gpu = 4
 
 img_norm_cfg = dict(
-    means=[
-        0.033349706741586264,
-        0.05701185520536176,
-        0.05889748132001316,
-        0.2323245113436119,
-        0.1972854853760658,
-        # 0.11944914225186566,
-    ],
-    stds=[
-        0.02269135568823774,
-        0.026807560223070237,
-        0.04004109844362779,
-        0.07791732423672691,
-        0.08708738838140137,
-        # 0.07241979477437814,
-    ],
+    means = [8284.60576285098, 8960.620879865262, 7048.155778147522, 7165.506184420261, 6846.093113783739],
+    # means=[
+        
+    #     # 0.2323245113436119,
+    #     # 0.11944914225186566,
+    #     # 0.05889748132001316,
+    #     # 0.05701185520536176,
+    #     # 0.033349706741586264,
+    #     # 0.1972854853760658,
+    # ],
+    stds=[4770.019046227436, 5331.417433631126, 3508.5626158655027, 3407.08002281137, 3322.3616913416913],
+    # stds=[
+        
+    #     # 0.08708738838140137,
+    #     # 0.07241979477437814,
+    #     # 0.04004109844362779,
+    #     # 0.026807560223070237,
+    #     # 0.02269135568823774,
+    #     # 0.07791732423672691,
+    #    ],
 )  # change the mean and std of all the bands
 
 bands = [0, 1, 2, 3, 4,]
@@ -61,11 +65,11 @@ embed_dim = 768
 num_heads = 12
 tubelet_size = 1
 output_embed_dim = num_frames * embed_dim
-max_intervals = 15000
-evaluation_interval = 1000
+max_intervals = 20000
+evaluation_interval = 500
 
 # TO BE DEFINED BY USER: model path
-experiment = "prithvi-gbr-weighted"
+experiment = "prithvi-retry-02-14"
 project_dir = "kelp-me"
 work_dir = os.path.join(project_dir, experiment)
 save_path = work_dir
@@ -87,8 +91,9 @@ train_pipeline = [
         new_shape=(len(bands), num_frames, tile_size, tile_size),
     ),
     dict(type="Reshape", keys=["gt_semantic_seg"], new_shape=(1, tile_size, tile_size)),
-    dict(type="TorchGaussianBlur"),
-    dict(type="TorchColorJitter"),
+    dict(type="TorchGaussianBlur",kernel_size=(3,7), sigma=(0.1, 5)),
+    dict(type="TorchColorJitter", brightness=(0.8,1.2), contrast=(0.8,1.2)),
+    dict(type="TorchRandomAffine", degrees=(-15, 15), translate=(0.15, 0.15), scale=(1, 1.15), shear=(-3, 3)),
     dict(type="CastTensor", keys=["gt_semantic_seg"], new_type="torch.LongTensor"),
     dict(type="Collect", keys=["img", "gt_semantic_seg"]),
 ]
@@ -153,17 +158,16 @@ data = dict(
         pipeline=test_pipeline,
         ignore_index=-1,
     ),
-    # test=dict(
-    #     type=dataset_type,
-    #     CLASSES=CLASSES,
-    #     data_root=data_root,
-    #     img_dir="test_satellite",
-    #     ann_dir="val_kelp",
-    #     img_suffix=img_suffix,
-    #     seg_map_suffix=seg_map_suffix,
-    #     pipeline=test_pipeline,
-    #     ignore_index=-1,
-    # ),
+    test=dict(
+        type=dataset_type,
+        CLASSES=CLASSES,
+        data_root=data_root,
+        img_dir="test_satellite",
+        img_suffix=img_suffix,
+        seg_map_suffix=seg_map_suffix,
+        pipeline=test_pipeline,
+        ignore_index=-1,
+    ),
 )
 
 optimizer = dict(type="Adam", lr=1.3e-05, betas=(0.9, 0.999))
@@ -182,7 +186,13 @@ log_config = dict(
     hooks=[
         dict(type="TextLoggerHook", by_epoch=False),
         dict(type="TensorboardLoggerHook", by_epoch=False),
-        dict(type="WandbLoggerHook", init_kwargs=dict(project=project_dir, name=experiment)),
+        dict(type='MMSegWandbHook', by_epoch=False, # The Wandb logger is also supported, It requires `wandb` to be installed.
+             init_kwargs=dict(project=project_dir, name=experiment),
+             interval=500,
+             log_checkpoint=True,
+             log_checkpoint_metadata=True,
+             num_eval_images=10)
+
     ],
 )
 
@@ -195,17 +205,16 @@ visualizer = dict(
 )
 
 
-checkpoint_config = dict(by_epoch=True, interval=1, out_dir=save_path)
+checkpoint_config = dict(by_epoch=False, interval=500, out_dir=save_path)
 # save the best checkpoint by dice
 evaluation = dict(
     interval=evaluation_interval,
     metric="mIoU",
     pre_eval=True,
-    save_best="mIoU",
     by_epoch=False,
 )
 
-loss_func = dict(type="DiceLoss", use_sigmoid=False, loss_weight=1, ignore_index=-1, class_weight=[0.0007,1])
+loss_func = dict(type="DiceLoss", use_sigmoid=False, loss_weight=1, ignore_index=-1)
 
 runner = dict(type="IterBasedRunner", max_iters=max_intervals)
 workflow = [("train", 1)]
